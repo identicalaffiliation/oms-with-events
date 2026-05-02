@@ -1,0 +1,8 @@
+CREATE TABLE order_events (
+  id UUID PRIMARY KEY NOT NULL,
+  order_id UUID NOT NULL,
+  event_type VARCHAR(50) NOT NULL,
+  payload JSONB NOT NULL,
+  sent_at TIMESTAMPTZ DEFAULT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
