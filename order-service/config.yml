@@ -1,3 +1,22 @@
 logger:
   format: json
   level: debug
+
+kafka:
+  brokers:
+    - "kafka:9092"
+  topic: orders
+
+dispatcher:
+  batchSize: 5
+  workerCount: 3
+  retryCount: 5
+  chillTime: 2s
+  
+server:
+  host: 0.0.0.0
+  port: 8080
+  readTimeout: 10s
+  writeTimeout: 10s
+  idleTimeout: 60s
+  shutdownTimeout: 20s

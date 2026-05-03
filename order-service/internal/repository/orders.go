@@ -16,7 +16,7 @@ func NewOrdersRepository(pool *sql.DB) *ordersRepository {
 	return &ordersRepository{pool: pool}
 }
 
-func (r *ordersRepository) createOrderWithTx(ctx context.Context,
+func (r *ordersRepository) CreateOrderWithTx(ctx context.Context,
 	tx *sql.Tx,
 	order *domain.Order,
 ) (*domain.Order, error) {

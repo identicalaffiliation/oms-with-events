@@ -19,7 +19,7 @@ func NewEventsRepository(pool *sql.DB) *eventsRepository {
 	return &eventsRepository{pool: pool}
 }
 
-func (r *eventsRepository) createEventWithTx(ctx context.Context,
+func (r *eventsRepository) CreateEventWithTx(ctx context.Context,
 	tx *sql.Tx,
 	event *domain.OrderEvent,
 ) error {

@@ -7,18 +7,18 @@ import (
 )
 
 type Order struct {
-	ID        uuid.UUID `db:"id"`
-	UserID    uuid.UUID `db:"user_id"`
-	Status    string    `db:"status"`
-	Amount    int       `db:"amount"`
-	CreatedAt time.Time `db:"created_at"`
-	UpdatedAt time.Time `db:"updated_at"`
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	Status    string    `json:"status"`
+	Amount    int       `json:"amount"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type CreateOrderRequest struct {
-	UserID uuid.UUID `json:"userId"`
-	Status string    `json:"status"`
-	Amount int       `json:"amount"`
+	UserID uuid.UUID `json:"userId" validate:"required"`
+	Status string    `json:"status" validate:"required,oneof=created paid shipped"`
+	Amount int       `json:"amount" validate:"required,min=1"`
 }
 
 type CreateOrderResponse struct {

@@ -8,8 +8,7 @@ import (
 )
 
 type EventsRepository interface {
-	CreateEventWithTx(ctx context.Context, event *domain.OrderEvent) error
-	GetUnsentEvents(ctx context.Context, size int) ([]*domain.OrderEvent, error)
+	GetUnsentEvents(ctx context.Context, batchSize int) ([]*domain.OrderEvent, error)
 	MarkEventAsSent(ctx context.Context, eventID uuid.UUID) error
 }
 
