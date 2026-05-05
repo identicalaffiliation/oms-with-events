@@ -58,7 +58,7 @@ func main() {
 	producer := broker.NewProducer(cfg.KafkaConfig.Brokers, cfg.KafkaConfig.Topic)
 	dispatcher := dispatcher.NewDispatcher(producer, eventsRepository, cfg.DispatcherConfig.WorkersCount,
 		cfg.DispatcherConfig.BatchSize, cfg.DispatcherConfig.RetryCount,
-		slogger, cfg.DispatcherConfig.ChillDuration)
+		slogger, cfg.DispatcherConfig.ChillDuration, pool)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

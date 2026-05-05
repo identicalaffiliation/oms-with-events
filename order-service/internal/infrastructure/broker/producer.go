@@ -20,9 +20,8 @@ func NewProducer(brokers []string, topic string) *KafkaProducer {
 	}
 }
 
-func (p *KafkaProducer) Produce(ctx context.Context, value []byte, topic, key string) error {
+func (p *KafkaProducer) Produce(ctx context.Context, value []byte, key string) error {
 	return p.writer.WriteMessages(ctx, kafka.Message{
-		Topic: topic,
 		Key:   []byte(key),
 		Value: value,
 	})

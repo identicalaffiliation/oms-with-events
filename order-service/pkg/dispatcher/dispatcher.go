@@ -2,6 +2,7 @@ package dispatcher
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/identicalaffiliation/oms-with-events/order-service/internal/infrastructure/logger"
@@ -16,6 +17,7 @@ type dispatcher struct {
 	retryCount       int
 	logger           logger.Logger
 	chillDuration    time.Duration
+	pool             *sql.DB
 }
 
 func NewDispatcher(
@@ -26,6 +28,7 @@ func NewDispatcher(
 	retryCount int,
 	logger logger.Logger,
 	chillDuration time.Duration,
+	pool *sql.DB,
 ) *dispatcher {
 	return &dispatcher{
 		producer:         producer,
@@ -35,62 +38,47 @@ func NewDispatcher(
 		retryCount:       retryCount,
 		logger:           logger,
 		chillDuration:    chillDuration,
+		pool:             pool,
 	}
 }
 
 func (d *dispatcher) Run(ctx context.Context) {
-	jobs := make(chan *domain.OrderEvent)
-
-	go func() {
-		<-ctx.Done()
-		close(jobs)
-	}()
+	jobs := make(chan *domain.OrderEvent, d.batchSize*2)
 
 	for i := 0; i < d.workersCount; i++ {
 		go d.worker(ctx, jobs)
 	}
 
-	for {
-		events, err := d.eventsRepository.GetUnsentEvents(ctx, d.batchSize)
-		if err != nil {
-			d.logger.Error("failed to get events", "error", err)
-			time.Sleep(d.chillDuration)
-			continue
-		}
+	go func() {
+		ticker := time.NewTicker(d.chillDuration)
+		defer ticker.Stop()
 
-		if len(events) == 0 {
-			time.Sleep(d.chillDuration)
-			continue
-		}
-
-		for _, e := range events {
+		for {
 			select {
-			case jobs <- e:
 			case <-ctx.Done():
+				close(jobs)
 				return
+
+			case <-ticker.C:
+				d.fetchAndDispatch(ctx, jobs)
 			}
 		}
-	}
+	}()
 }
 
 func (d *dispatcher) worker(ctx context.Context, jobs <-chan *domain.OrderEvent) {
 	for e := range jobs {
-		for attempt := 0; attempt < d.retryCount; attempt++ {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
 
-			err := d.producer.Produce(ctx, e.Payload, e.ID.String(), e.EventType)
+		var success bool
+		for attempt := 0; attempt < d.retryCount; attempt++ {
+
+			err := d.producer.Produce(ctx, e.Payload, e.ID.String())
 			if err == nil {
-				if err := d.eventsRepository.MarkEventAsSent(ctx, e.ID); err != nil {
-					d.logger.Error("failed to mark event as sent", "event id", e.ID, "error", err)
-				}
+				success = true
 				break
 			}
 
-			d.logger.Error("failed to send event to broker", "error", err)
+			d.logger.Error("failed to send event", "error", err)
 
 			select {
 			case <-ctx.Done():
@@ -99,5 +87,44 @@ func (d *dispatcher) worker(ctx context.Context, jobs <-chan *domain.OrderEvent)
 			}
 		}
 
+		if success {
+			if err := d.eventsRepository.MarkEventAsSent(ctx, e.ID); err != nil {
+				d.logger.Error("failed to mark event as sent", "error", err, "id", e.ID)
+			} else {
+				d.logger.Debug("event sent", "id", e.ID)
+			}
+		}
+	}
+}
+
+func (d *dispatcher) fetchAndDispatch(ctx context.Context, jobs chan<- *domain.OrderEvent) {
+	tx, err := d.pool.BeginTx(ctx, nil)
+	if err != nil {
+		d.logger.Error("begin tx failed", "error", err)
+		return
+	}
+	defer tx.Rollback()
+
+	events, err := d.eventsRepository.GetUnsentEventsWithTx(ctx, tx, d.batchSize)
+	if err != nil {
+		d.logger.Error("claim events failed", "error", err)
+		return
+	}
+
+	if len(events) == 0 {
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		d.logger.Error("commit claim tx failed", "error", err)
+		return
+	}
+
+	for _, e := range events {
+		select {
+		case jobs <- e:
+		case <-ctx.Done():
+			return
+		}
 	}
 }

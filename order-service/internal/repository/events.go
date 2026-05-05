@@ -47,24 +47,72 @@ func (r *eventsRepository) CreateEventWithTx(ctx context.Context,
 	return nil
 }
 
+func (r *eventsRepository) GetUnsentEventsWithTx(
+	ctx context.Context,
+	tx *sql.Tx,
+	batchSize int,
+) ([]*domain.OrderEvent, error) {
+	query := `
+		SELECT
+    	id,
+    	order_id,
+    	event_type,
+    	payload,
+    	sent_at,
+    	created_at
+		FROM 
+			order_events
+		WHERE 
+			sent_at IS NULL
+		ORDER BY 
+			created_at ASC, 
+			id ASC
+		FOR UPDATE SKIP LOCKED
+		LIMIT $1
+	`
+
+	rows, err := tx.QueryContext(ctx, query, batchSize)
+	if err != nil {
+		return nil, fmt.Errorf("select events: %w", err)
+	}
+
+	defer rows.Close()
+
+	var events []*domain.OrderEvent
+	for rows.Next() {
+		e := &domain.OrderEvent{}
+		var payload []byte
+		err := rows.Scan(&e.ID, &e.OrderID, &e.EventType,
+			&payload, &e.SentAt, &e.CreatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("scan row: %w", err)
+		}
+		e.Payload = payload
+		events = append(events, e)
+	}
+
+	return events, nil
+}
+
 func (r *eventsRepository) GetUnsentEvents(
 	ctx context.Context,
 	batchSize int,
 ) ([]*domain.OrderEvent, error) {
 	query := `
 		SELECT
-			id,
-			order_id,
-			event_type,
-			payload,
-			sent_at,
-			created_at
-		FROM
+    	id,
+    	order_id,
+    	event_type,
+    	payload,
+    	sent_at,
+    	created_at
+		FROM 
 			order_events
-		WHERE
+		WHERE 
 			sent_at IS NULL
-		ORDER BY
-			created_at
+		ORDER BY 
+			created_at ASC, 
+			id ASC
 		LIMIT $1
 	`
 

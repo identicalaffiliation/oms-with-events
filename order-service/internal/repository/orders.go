@@ -45,7 +45,9 @@ func (r *ordersRepository) CreateOrderWithTx(ctx context.Context,
 	var created domain.Order
 
 	err := tx.QueryRowContext(ctx, query, order.ID, order.UserID,
-		order.Status, order.Amount).Scan(&created)
+		order.Status, order.Amount).Scan(&created.ID, &created.UserID,
+		&created.Status, &created.Amount, &created.CreatedAt,
+		&created.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("create order: %w", err)
 	}
