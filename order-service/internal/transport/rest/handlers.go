@@ -49,3 +49,39 @@ func (api *OrderServiceAPI) GetMyOrders(w http.ResponseWriter, r *http.Request) 
 
 	encodeResponse(w, &response, http.StatusOK)
 }
+
+func (api *OrderServiceAPI) UpdateStatus(w http.ResponseWriter, r *http.Request) {
+	var req dto.UpdateStatusRequest
+	if err := decodeJSON(r, &req); err != nil {
+		NewBadRequest(w, "invalid json body")
+	}
+
+	if err := ValidateRequest(api.validator, req); err != nil {
+		NewBadRequest(w, "invalid request")
+	}
+
+	reqCtx := r.Context()
+
+	switch req.Status {
+	case "paid":
+		if err := api.Usecase.MarkStatusAsPaid(reqCtx, &req); err != nil {
+			switch {
+			case errors.Is(err, usecase.ErrInvalidStatus):
+				NewBadRequest(w, "invalid status")
+			default:
+				NewInternalServerError(w)
+			}
+		}
+	case "shipped":
+		if err := api.Usecase.MarkStatusAsShipped(reqCtx, &req); err != nil {
+			switch {
+			case errors.Is(err, usecase.ErrInvalidStatus):
+				NewBadRequest(w, "invalid status")
+			default:
+				NewInternalServerError(w)
+			}
+		}
+	}
+
+	encodeResponse(w, nil, http.StatusOK)
+}

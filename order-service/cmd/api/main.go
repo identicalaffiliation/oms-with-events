@@ -97,6 +97,7 @@ func setupMux(
 	mux := chi.NewRouter()
 	mux.Post("/orders", api.CreateOrder)
 	mux.Get("/orders/my/{id}", api.GetMyOrders)
+	mux.Patch("/orders", api.UpdateStatus)
 
 	serverAddress := fmt.Sprintf("%s:%d", cfg.ServerConfig.Host, cfg.ServerConfig.Port)
 

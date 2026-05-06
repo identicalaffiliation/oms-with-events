@@ -95,3 +95,22 @@ func (r *ordersRepository) GetMyOrders(
 
 	return orders, nil
 }
+
+func (r *ordersRepository) UpdateStatusWithTx(
+	ctx context.Context,
+	tx *sql.Tx,
+	status domain.Status,
+	orderID uuid.UUID,
+) error {
+	query := `
+		UPDATE orders
+		SET status = $1, updated_at = now()
+		WHERE id = $2
+	`
+
+	if _, err := r.pool.ExecContext(ctx, query, string(status), orderID); err != nil {
+		return fmt.Errorf("update status: %w", err)
+	}
+
+	return nil
+}

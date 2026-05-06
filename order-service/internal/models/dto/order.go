@@ -24,3 +24,8 @@ type CreateOrderRequest struct {
 type CreateOrderResponse struct {
 	Order Order `json:"order"`
 }
+
+type UpdateStatusRequest struct {
+	OrderID uuid.UUID `json:"orderId" validate:"required"`
+	Status  string    `json:"status" validate:"required,oneof=paid shipped"`
+}

@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -71,7 +72,7 @@ func (s *orderUsecase) CreateOrder(
 
 	if err := tx.Commit(); err != nil {
 		s.logger.Error("failed to commit tx", "error", err)
-		return nil, fmt.Errorf("commit tx: %w", err)
+		return nil, ErrInternal
 	}
 
 	response := &dto.CreateOrderResponse{
@@ -119,4 +120,124 @@ func domainsToDto(domains []*domain.Order) []*dto.Order {
 	}
 
 	return orders
+}
+
+func (s *orderUsecase) MarkStatusAsPaid(
+	ctx context.Context,
+	req *dto.UpdateStatusRequest,
+) error {
+	if req.Status != "paid" {
+		return ErrInvalidStatus
+	}
+
+	tx, err := s.pool.BeginTx(ctx, nil)
+	if err != nil {
+		s.logger.Error("failed begin tx", "error", err)
+		return ErrInternal
+	}
+
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	err = s.ordersRepository.UpdateStatusWithTx(
+		ctx,
+		tx,
+		domain.Status(req.Status),
+		req.OrderID,
+	)
+	if err != nil {
+		s.logger.Error("failed to update status", "error", err)
+		return ErrInternal
+	}
+
+	orderPayload := struct {
+		ID     uuid.UUID     `json:"orderId"`
+		Status domain.Status `json:"status"`
+	}{
+		ID:     req.OrderID,
+		Status: domain.Status(req.Status),
+	}
+
+	bytes, _ := json.Marshal(&orderPayload)
+
+	event := domain.OrderEvent{
+		ID:        uuid.New(),
+		OrderID:   req.OrderID,
+		EventType: "orders.paid",
+		Payload:   bytes,
+	}
+
+	err = s.eventsRepository.CreateEventWithTx(ctx, tx, &event)
+	if err != nil {
+		s.logger.Error("failed to create event", "error", err)
+		return ErrInternal
+	}
+
+	if err := tx.Commit(); err != nil {
+		s.logger.Error("failed to commit tx", "error", err)
+		return ErrInternal
+	}
+
+	return nil
+}
+
+func (s *orderUsecase) MarkStatusAsShipped(
+	ctx context.Context,
+	req *dto.UpdateStatusRequest,
+) error {
+	if req.Status != "shipped" {
+		return ErrInvalidStatus
+	}
+
+	tx, err := s.pool.BeginTx(ctx, nil)
+	if err != nil {
+		s.logger.Error("failed begin tx", "error", err)
+		return ErrInternal
+	}
+
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	err = s.ordersRepository.UpdateStatusWithTx(
+		ctx,
+		tx,
+		domain.Status(req.Status),
+		req.OrderID,
+	)
+	if err != nil {
+		s.logger.Error("failed to update status", "error", err)
+		return ErrInternal
+	}
+
+	orderPayload := struct {
+		ID     uuid.UUID     `json:"orderId"`
+		Status domain.Status `json:"status"`
+	}{
+		ID:     req.OrderID,
+		Status: domain.Status(req.Status),
+	}
+
+	bytes, _ := json.Marshal(&orderPayload)
+
+	event := domain.OrderEvent{
+		ID:        uuid.New(),
+		OrderID:   req.OrderID,
+		EventType: "orders.shipped",
+		Payload:   bytes,
+	}
+
+	err = s.eventsRepository.CreateEventWithTx(ctx, tx, &event)
+	if err != nil {
+		s.logger.Error("failed to create event", "error", err)
+		return ErrInternal
+	}
+
+	if err := tx.Commit(); err != nil {
+		s.logger.Error("failed to commit tx", "error", err)
+		return ErrInternal
+	}
+
+	return nil
 }
