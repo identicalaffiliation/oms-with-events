@@ -3,7 +3,7 @@ import time
 
 KAFKA_BOOTSTRAP_SERVERS = "kafka:9092"
 
-topicInfo = {"topicName": "orders", "partitions": 1, "replicationFactor": 1}
+topicInfo = {"topicName": "orders", "partitions": 3, "replicationFactor": 1}
 
 TOPICS = [
   (topicInfo["topicName"], topicInfo["partitions"], topicInfo["replicationFactor"]),

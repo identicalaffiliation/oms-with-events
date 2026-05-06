@@ -3,6 +3,7 @@ package dispatcher
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"github.com/identicalaffiliation/oms-with-events/order-service/internal/infrastructure/logger"
@@ -71,8 +72,32 @@ func (d *dispatcher) worker(ctx context.Context, jobs <-chan *domain.OrderEvent)
 
 		var success bool
 		for attempt := 0; attempt < d.retryCount; attempt++ {
+			var sqlPayload struct {
+				Status domain.Status `json:"status"`
+				Amount int           `json:"amount"`
+			}
 
-			err := d.producer.Produce(ctx, e.Payload, e.ID.String())
+			if err := json.Unmarshal(e.Payload, &sqlPayload); err != nil {
+				d.logger.Error("failed to unmarshal db bytes", "error", err)
+			}
+
+			payload := domain.Payload{
+				OrderID: e.OrderID,
+				Status:  sqlPayload.Status,
+				Amount:  sqlPayload.Amount,
+			}
+
+			kafkaPayload := &domain.DispatcherEvent{
+				EventID: e.ID,
+				Payload: payload,
+			}
+
+			bytes, err := json.Marshal(&kafkaPayload)
+			if err != nil {
+				d.logger.Error("failed to marshal bytes to kafka", "error", err)
+			}
+
+			err = d.producer.Produce(ctx, bytes, e.OrderID.String())
 			if err == nil {
 				success = true
 				break

@@ -35,7 +35,22 @@ services:
         condition: service_completed_successfully
     ports:
       - "8080:8080"
-
+  notify-service:
+    container_name: notify-service
+    build:
+      context: ./notify-service
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-your_db}
+      POSTGRES_USER: ${POSTGRES_USER:-your_nickname}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-your_password}
+      POSTGRES_SSL_MODE: ${POSTGRES_SSL_MODE:-disable}
+    volumes:
+      - ./notify-service/config.yml:/app/config.yml:ro
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
   postgres:
     container_name: postgres-app
     image: postgres:18
