@@ -87,3 +87,36 @@ func (s *orderUsecase) CreateOrder(
 
 	return response, nil
 }
+
+func (s *orderUsecase) GetOrders(ctx context.Context, userID uuid.UUID) ([]*dto.Order, error) {
+	if userID == uuid.Nil {
+		return nil, ErrInvalidUserId
+	}
+
+	orders, err := s.ordersRepository.GetMyOrders(ctx, userID)
+	if err != nil {
+		return nil, ErrInternal
+	}
+
+	if len(orders) == 0 {
+		return []*dto.Order{}, nil
+	}
+
+	return domainsToDto(orders), nil
+}
+
+func domainsToDto(domains []*domain.Order) []*dto.Order {
+	orders := make([]*dto.Order, 0, len(domains))
+	for _, domain := range domains {
+		orders = append(orders, &dto.Order{
+			ID:        domain.ID,
+			UserID:    domain.UserID,
+			Status:    string(domain.Status),
+			Amount:    domain.Amount,
+			CreatedAt: domain.CreatedAt,
+			UpdatedAt: domain.UpdatedAt,
+		})
+	}
+
+	return orders
+}

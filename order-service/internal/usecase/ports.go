@@ -11,6 +11,7 @@ import (
 
 type OrdersRepository interface {
 	CreateOrderWithTx(ctx context.Context, tx *sql.Tx, order *domain.Order) (*domain.Order, error)
+	GetMyOrders(ctx context.Context, userID uuid.UUID) ([]*domain.Order, error)
 }
 
 type EventsRepository interface {
@@ -21,4 +22,5 @@ type EventsRepository interface {
 
 type OrdersUsecase interface {
 	CreateOrder(ctx context.Context, req *dto.CreateOrderRequest) (*dto.CreateOrderResponse, error)
+	GetOrders(ctx context.Context, userID uuid.UUID) ([]*dto.Order, error)
 }

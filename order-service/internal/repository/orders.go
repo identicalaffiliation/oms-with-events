@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/identicalaffiliation/oms-with-events/order-service/internal/models/domain"
 )
 
@@ -53,4 +54,44 @@ func (r *ordersRepository) CreateOrderWithTx(ctx context.Context,
 	}
 
 	return &created, nil
+}
+
+func (r *ordersRepository) GetMyOrders(
+	ctx context.Context,
+	userID uuid.UUID,
+) ([]*domain.Order, error) {
+	query := `
+		SELECT
+			id,
+			user_id,
+			status,
+			amount,
+			created_at,
+			updated_at
+		FROM
+			orders
+		WHERE
+			user_id = $1
+	`
+
+	rows, err := r.pool.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("select orders: %w", err)
+	}
+
+	defer rows.Close()
+
+	var orders []*domain.Order
+	for rows.Next() {
+		var order domain.Order
+		err := rows.Scan(&order.ID, &order.UserID, &order.Status,
+			&order.Amount, &order.CreatedAt, &order.UpdatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("scan order: %w", err)
+		}
+
+		orders = append(orders, &order)
+	}
+
+	return orders, nil
 }
